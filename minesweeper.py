@@ -24,12 +24,15 @@ class Block(pygame.sprite.Sprite):
         self.width = 30
         self.height = 30
         self.image = (pygame.transform.scale(pygame.image.load("block.png"),(self.width,self.height))).convert()
+        self.bomb_explode_image = (pygame.transform.scale(pygame.image.load("explode.png"),(self.width,self.height))).convert()
         self.bomb_image = (pygame.transform.scale(pygame.image.load("bomb.png"),(self.width,self.height))).convert()
         self.flag_image = (pygame.transform.scale(pygame.image.load("flag.png"),(self.width,self.height))).convert()
+        self.blank_image = (pygame.transform.scale(pygame.image.load("blank.png"),(self.width,self.height))).convert()
         self.rect = self.image.get_rect()
         self.rect.x = self.x
         self.rect.y = self.y
         self.flagged = False
+        self.left_clicked = False
         #self.surf = pygame.Surface((30, 30))
         #self.surf.fill((128,255,40))
         
@@ -38,7 +41,17 @@ class Block(pygame.sprite.Sprite):
     def draw(self,win):
         if self.flagged:
             win.blit(self.flag_image,(self.x,self.y))   
-        else: 
+        elif self.left_clicked: 
+            if self.bomb == 'b':
+                win.blit(self.bomb_explode_image,(self.x,self.y))
+            elif self.bomb_count == 0:
+                win.blit(self.blank_image,(self.x,self.y))
+            elif self.bomb_count != 0:
+                win.blit(self.blank_image,(self.x,self.y))
+                number_text = myfont.render(str(self.bomb_count), True, (255,0,0))
+                number_rect = number_text.get_rect(center = self.rect.center)
+                win.blit(number_text, number_rect)
+        else:
             win.blit(self.image,(self.x,self.y))
 
 timer_event = pygame.USEREVENT+1
@@ -72,7 +85,7 @@ class Start_Lost:
         elif self.gamestate == 'playing':
             win.blit(self.start_img, self.start_img_rect)
         elif self.gamestate == 'lost':
-            print('LOST')
+            #print('LOST')
             win.blit(self.lost_img, self.lost_img_rect)
 
 blocks_list = []
@@ -102,15 +115,20 @@ def calculate_numbers(b_list):  # this function creates bombs count list
             if index % 10 == 0:  #left edge blocks
                 div_by_10.append(index)
                 midtop = index-10
-                neighbor_cell_list.append(midtop)
+                if midtop >= 0 :
+                    neighbor_cell_list.append(midtop)
                 topright = index-9
-                neighbor_cell_list.append(topright)                
+                if topright >= 0 :
+                    neighbor_cell_list.append(topright)                
                 right = index+1
-                neighbor_cell_list.append(right)
+                if right >= 0 :
+                    neighbor_cell_list.append(right)
                 midbottom = index+10
-                neighbor_cell_list.append(midbottom)
+                if midbottom >= 0 :
+                    neighbor_cell_list.append(midbottom)
                 bottomright = index+11
-                neighbor_cell_list.append(bottomright)
+                if bottomright >= 0 :
+                    neighbor_cell_list.append(bottomright)
                 
                 for cell in neighbor_cell_list:
                     try:
@@ -123,17 +141,24 @@ def calculate_numbers(b_list):  # this function creates bombs count list
             elif index % 10 == 9:     #Right edge blocks
                 div_by_9.append(index)
                 topleft = index-11
-                neighbor_cell_list.append(topleft)
+                if topleft >= 0:
+                    neighbor_cell_list.append(topleft)
+
                 midtop = index-10
-                neighbor_cell_list.append(midtop)
+                if midtop >= 0:
+                    neighbor_cell_list.append(midtop)
                 
                 left = index-1
-                neighbor_cell_list.append(left)
+                if left >= 0:
+                    neighbor_cell_list.append(left)
                 
                 bottomleft = index+9
-                neighbor_cell_list.append(bottomleft)
+                if bottomleft >= 0:
+                    neighbor_cell_list.append(bottomleft)
+
                 midbottom = index+10
-                neighbor_cell_list.append(midbottom)
+                if midbottom >= 0:
+                    neighbor_cell_list.append(midbottom)
                 
                 for cell in neighbor_cell_list:
                     try:
@@ -144,10 +169,10 @@ def calculate_numbers(b_list):  # this function creates bombs count list
                 
                 bombs_count_list[index] = bomb_count
 
-            else:
+            else:  # all blocks that are not in left or right edge
                 div_normal.append(index)
-                topleft = index-11
-                if topleft >= 0:
+                topleft = index-11  
+                if topleft >= 0:  #check imp in case of top and bottom most block that may give out of range index 
                     neighbor_cell_list.append(topleft)
                 midtop = index-10
                 if midtop >= 0:
@@ -187,17 +212,17 @@ bom_count_list = calculate_numbers(bombs_list)
 #print('div by 9',div_by_9)
 #print('div normal',div_normal)
 
-for i in range(10):
-    for j in range(10):
-        j = 10 * i + j
-        #print(bombs_list[j],end='')
-    #print()
+# for i in range(10):
+#     for j in range(10):
+#         j = 10 * i + j
+#         print(bombs_list[j],end=' ')
+#     print()
 
-for i in range(10):
-    for j in range(10):
-        j = 10 * i + j
-        #print(bom_count_list[j],end='')
-    #print()
+# for i in range(10):
+#     for j in range(10):
+#         j = 10 * i + j
+#         print(bom_count_list[j],end=' ')
+#     print()
 
 x = 0
 y = 100
@@ -227,7 +252,8 @@ while running:
     #clock.tick(100)
     for event in pygame.event.get():
         mouse_pressed = pygame.mouse.get_pressed()
-        if mouse_pressed[0]:
+        #LEFT CLICK
+        if mouse_pressed[0]:    #LEFT CLICK ON START BUTTON
             mouse_location = pygame.mouse.get_pos()
             #print("Left Mouse Key is being pressed")
             #print(pygame.mouse.get_pos())
@@ -239,20 +265,24 @@ while running:
                     counter = 0
                     start_button.gamestate = 'playing'
                     pygame.time.set_timer(timer_event, 1000)
-            else:
+                
+            else:       #LEFT CLICK ON BLOCKS
                 for b in blocks_list:
                 #print(b.rect.collidepoint(pygame.mouse.get_pos()))
                     if b.rect.collidepoint(mouse_location):
-                        print('YES',b.rect,'MOUSE',mouse_location)
+                        b.left_clicked = True
+                        #print('YES',b.rect,'MOUSE',mouse_location)
                         break
-                #else:
-                #    print('NO',b.rect,'MOUSE',pygame.mouse.get_pos())
+
+        # RIGHT CLICK
         elif mouse_pressed[2]:
             mouse_location = pygame.mouse.get_pos()
             for b in blocks_list:
                 #print(b.rect.collidepoint(pygame.mouse.get_pos()))
                     if b.rect.collidepoint(mouse_location):
-                        print('YES',b.rect,'MOUSE',mouse_location)
+                        if b.left_clicked != True:
+                            b.flagged = not b.flagged
+                        #print('YES',b.rect,'MOUSE',mouse_location)
                         break
             
         if event.type == pygame.QUIT:
