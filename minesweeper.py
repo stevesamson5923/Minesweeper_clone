@@ -2,11 +2,11 @@ import pygame
 import random
 pygame.init()
 
-WIN_WIDTH = 300
+WIN_WIDTH = 450
 WIN_HEIGHT = 400
 TOTAL_BLOCKS = 100
 win = pygame.display.set_mode((WIN_WIDTH,WIN_HEIGHT))
-
+GAME_STATE = 'NA'
 pygame.display.set_caption('MINESWEEPER' )
 pygame.font.init()
 myfont = pygame.font.SysFont('Comic Sans MS', 30)
@@ -39,10 +39,13 @@ class Block(pygame.sprite.Sprite):
     def update(self,win):
         self.draw(win)
     def draw(self,win):
+        global GAME_STATE 
         if self.flagged:
             win.blit(self.flag_image,(self.x,self.y))   
         elif self.left_clicked: 
             if self.bomb == 'b':
+                GAME_STATE = 'LOST'
+                #print(GAME_STATE)
                 win.blit(self.bomb_explode_image,(self.x,self.y))
             elif self.bomb_count == 0:
                 win.blit(self.blank_image,(self.x,self.y))
@@ -59,7 +62,7 @@ timer_event = pygame.USEREVENT+1
 running = True
 counter=0
 
-timer_rect_box = pygame.Rect(WIN_WIDTH-80, 10, 60, 30)
+timer_rect_box = pygame.Rect(WIN_WIDTH-230, 10, 60, 30)
 timer_text = myfont.render(str(counter), True, (232, 26, 12))
 #text_rect = text.get_rect(center = win.get_rect().center)
 
@@ -71,13 +74,16 @@ class Start_Lost:
         self.lost_img.convert()
 
         self.start_img_rect = self.start_img.get_rect()
-        self.start_img_rect.midtop = WIN_WIDTH//2, 10
+        self.start_img_rect.midtop = (WIN_WIDTH-200)//2, 10
 
         self.lost_img_rect = self.lost_img.get_rect()
-        self.lost_img_rect.midtop = WIN_WIDTH//2, 10
+        self.lost_img_rect.midtop = (WIN_WIDTH-200)//2, 10
 
         self.gamestate = 'ready'
     def update(self,win):
+        global GAME_STATE 
+        if GAME_STATE == 'LOST':
+            self.gamestate = 'lost'
         self.draw(win)
     def draw(self,win):
         if self.gamestate == 'ready':
@@ -208,6 +214,9 @@ def calculate_numbers(b_list):  # this function creates bombs count list
 bombs_list = create_bombs()
 bom_count_list = calculate_numbers(bombs_list)
 
+def open_blocks(block):
+    pass
+
 #print('div by 10',div_by_10)
 #print('div by 9',div_by_9)
 #print('div normal',div_normal)
@@ -253,29 +262,57 @@ while running:
     for event in pygame.event.get():
         mouse_pressed = pygame.mouse.get_pressed()
         #LEFT CLICK
-        if mouse_pressed[0]:    #LEFT CLICK ON START BUTTON
+        if mouse_pressed[0] :    #LEFT CLICK ON START BUTTON
             mouse_location = pygame.mouse.get_pos()
             #print("Left Mouse Key is being pressed")
             #print(pygame.mouse.get_pos())
             if start_button.start_img_rect.collidepoint(mouse_location):
+                #print('OOOOOO')
                 if start_button.gamestate == 'ready' or start_button.gamestate == 'playing':                
+                        if start_button.gamestate == 'playing': #reintialize game window, shuffle numbers and bombs position
+                            bombs_list = create_bombs()
+                            bom_count_list = calculate_numbers(bombs_list)
+                            
+                            for index,b in enumerate(blocks_list):
+                                b.flagged = False
+                                b.left_clicked = False
+                                b.bomb = bombs_list[index]
+                                b.bomb_count = bom_count_list[index]
+
                         start_button.gamestate = 'playing'
                         pygame.time.set_timer(timer_event, 1000)
+                        
                 elif start_button.gamestate == 'lost':
+                    #print('NNNNNN')
+                    # reinitialize/reset GAME
+                    bombs_list = create_bombs()
+                    bom_count_list = calculate_numbers(bombs_list)
+                            
+                    for index,b in enumerate(blocks_list):
+                        b.flagged = False
+                        b.left_clicked = False
+                        b.bomb = bombs_list[index]
+                        b.bomb_count = bom_count_list[index]
+                    
+                    GAME_STATE = 'NA'
                     counter = 0
                     start_button.gamestate = 'playing'
                     pygame.time.set_timer(timer_event, 1000)
                 
-            else:       #LEFT CLICK ON BLOCKS
-                for b in blocks_list:
-                #print(b.rect.collidepoint(pygame.mouse.get_pos()))
-                    if b.rect.collidepoint(mouse_location):
-                        b.left_clicked = True
-                        #print('YES',b.rect,'MOUSE',mouse_location)
-                        break
+            else: 
+                if GAME_STATE == 'NA':
+                        #LEFT CLICK ON BLOCKS
+                    for b in blocks_list:
+                    #print(b.rect.collidepoint(pygame.mouse.get_pos()))
+                        if b.rect.collidepoint(mouse_location):
+                            if not b.flagged:
+                                b.left_clicked = True
+                                open_blocks(b)
+                            #print('YES',b.rect,'MOUSE',mouse_location)
+                            break
 
         # RIGHT CLICK
-        elif mouse_pressed[2]:
+        elif mouse_pressed[2] and GAME_STATE == 'NA':
             mouse_location = pygame.mouse.get_pos()
             for b in blocks_list:
                 #print(b.rect.collidepoint(pygame.mouse.get_pos()))
@@ -292,7 +329,9 @@ while running:
             timer_text = myfont.render(str(counter), True, (232, 26, 12))           
             if counter == 50:
                 start_button.gamestate = 'lost'
-                pygame.time.set_timer(timer_event, 0) 
+                pygame.time.set_timer(timer_event, 0)
+            if GAME_STATE == 'LOST':
+                pygame.time.set_timer(timer_event, 0)
                 
         #elif event.type == pygame.MOUSEMOTION:
             #x,y  = pygame.mouse.get_pos()            
