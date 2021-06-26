@@ -1,5 +1,6 @@
 import pygame
-import random
+import random,sys
+
 pygame.init()
 
 WIN_WIDTH = 450
@@ -11,6 +12,9 @@ pygame.display.set_caption('MINESWEEPER' )
 pygame.font.init()
 myfont = pygame.font.SysFont('Comic Sans MS', 30)
 myfont2 = pygame.font.SysFont('Comic Sans MS', 48)
+
+#sys.setrecursionlimit(2000)
+print(sys.getrecursionlimit())
 
 clock = pygame.time.Clock()
 BODY_COLOR = (175, 184, 199)
@@ -46,7 +50,7 @@ class Block(pygame.sprite.Sprite):
             if self.bomb == 'b':
                 GAME_STATE = 'LOST'
                 #print(GAME_STATE)
-                win.blit(self.bomb_explode_image,(self.x,self.y))
+                win.blit(self.bomb_explode_image,(self.x,self.y))                
             elif self.bomb_count == 0:
                 win.blit(self.blank_image,(self.x,self.y))
             elif self.bomb_count != 0:
@@ -54,6 +58,11 @@ class Block(pygame.sprite.Sprite):
                 number_text = myfont.render(str(self.bomb_count), True, (255,0,0))
                 number_rect = number_text.get_rect(center = self.rect.center)
                 win.blit(number_text, number_rect)
+        elif GAME_STATE == 'LOST':
+            if self.bomb == 'b':
+                win.blit(self.bomb_image,(self.x,self.y))  
+            else:
+                win.blit(self.image,(self.x,self.y))
         else:
             win.blit(self.image,(self.x,self.y))
 
@@ -187,7 +196,8 @@ def calculate_numbers(b_list):  # this function creates bombs count list
                 if topright >= 0:
                     neighbor_cell_list.append(topright)
                 left = index-1
-                neighbor_cell_list.append(left)
+                if left >= 0:
+                    neighbor_cell_list.append(left)
                 right = index+1
                 if right >= 0:
                     neighbor_cell_list.append(right)
@@ -214,8 +224,94 @@ def calculate_numbers(b_list):  # this function creates bombs count list
 bombs_list = create_bombs()
 bom_count_list = calculate_numbers(bombs_list)
 
-def open_blocks(block):
-    pass
+def open_blocks(block,index):   
+    print('Parent->',index) 
+    if bombs_list[index] == 'b':
+        return
+    if bom_count_list[index] != 0:
+        return
+
+    padosi_list = []
+    if index % 10 == 0:     #left edge blocks
+        midtop = index-10
+        if midtop >= 0 :
+            padosi_list.append(midtop)
+        topright = index-9
+        if topright >= 0 :
+            padosi_list.append(topright)                
+        right = index+1
+        if right >= 0 :
+            padosi_list.append(right)
+        bottomright = index+11
+        if bottomright >= 0 :
+            padosi_list.append(bottomright) 
+        midbottom = index+10
+        if midbottom >= 0 :
+            padosi_list.append(midbottom)
+               
+    elif index % 10 == 9:       #right edge blocks
+        midtop = index-10
+        if midtop >= 0:
+            padosi_list.append(midtop)
+        
+        topleft = index-11
+        if topleft >= 0:
+            padosi_list.append(topleft)
+                
+        left = index-1
+        if left >= 0:
+            padosi_list.append(left)
+                
+        bottomleft = index+9
+        if bottomleft >= 0:
+            padosi_list.append(bottomleft)
+
+        midbottom = index+10
+        if midbottom >= 0:
+            padosi_list.append(midbottom)
+
+    else:                   # all blocks that are not in left or right edge
+        topleft = index-11  
+        if topleft >= 0:    #check imp in case of top and bottom most block that may give out of range index 
+            padosi_list.append(topleft)
+        midtop = index-10
+        if midtop >= 0:
+            padosi_list.append(midtop)
+        topright = index-9
+        if topright >= 0:
+            padosi_list.append(topright)
+        left = index-1
+        if left >= 0:
+            padosi_list.append(left)
+        right = index+1
+        if right >= 0:
+            padosi_list.append(right)
+        bottomleft = index+9
+        if bottomleft >= 0:
+            padosi_list.append(bottomleft)
+        midbottom = index+10
+        if midbottom >= 0:
+            padosi_list.append(midbottom)
+        bottomright = index+11
+        if bottomright >= 0:
+            padosi_list.append(bottomright)
+
+    print(padosi_list)
+    padosi_clone = padosi_list.copy()
+    for p_index in padosi_clone:
+        try:
+            if bombs_list[p_index] == 'b':
+                continue
+            elif bom_count_list[p_index] != 0:
+                if blocks_list[p_index].flagged != True or blocks_list[p_index].left_clicked != True:
+                    blocks_list[p_index].left_clicked = True
+            elif bom_count_list[p_index] == 0:
+                print('Child->', p_index)
+                if blocks_list[p_index].flagged != True and blocks_list[p_index].left_clicked != True:
+                    blocks_list[p_index].left_clicked = True
+                    open_blocks(blocks_list[p_index],p_index)
+        except IndexError as error:
+            pass
 
 #print('div by 10',div_by_10)
 #print('div by 9',div_by_9)
@@ -252,8 +348,8 @@ def redrawWindow():
     rect_surf = pygame.draw.rect(win, (0,0,0), timer_rect_box)
     timer_rect = timer_text.get_rect(center = rect_surf.center)
     win.blit(timer_text, timer_rect)
-    for b in blocks_list:
-        b.update(win)        
+    for index,b in enumerate(blocks_list):
+        b.update(win)     
     pygame.display.update()
 
 
@@ -298,16 +394,16 @@ while running:
                     counter = 0
                     start_button.gamestate = 'playing'
                     pygame.time.set_timer(timer_event, 1000)
-                
+            # LEFT CLICKS ON BLOCK    
             else: 
-                if GAME_STATE == 'NA':
+                if GAME_STATE == 'NA' and start_button.gamestate == 'playing':
                         #LEFT CLICK ON BLOCKS
-                    for b in blocks_list:
+                    for index,b in enumerate(blocks_list):
                     #print(b.rect.collidepoint(pygame.mouse.get_pos()))
                         if b.rect.collidepoint(mouse_location):
                             if not b.flagged:
                                 b.left_clicked = True
-                                open_blocks(b)
+                                open_blocks(b,index)
                             #print('YES',b.rect,'MOUSE',mouse_location)
                             break
 
