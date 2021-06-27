@@ -11,8 +11,9 @@ GAME_STATE = 'NA'
 pygame.display.set_caption('MINESWEEPER' )
 pygame.font.init()
 myfont = pygame.font.SysFont('Comic Sans MS', 30)
-myfont2 = pygame.font.SysFont('Comic Sans MS', 48)
-
+result_font = pygame.font.SysFont('Times New Roman', 48)
+BOMB_NOS = 15
+BOMB_NOS_COPY = BOMB_NOS
 #sys.setrecursionlimit(2000)
 print(sys.getrecursionlimit())
 
@@ -43,7 +44,7 @@ class Block(pygame.sprite.Sprite):
     def update(self,win):
         self.draw(win)
     def draw(self,win):
-        global GAME_STATE 
+        global GAME_STATE, BOMB_NOS
         if self.flagged:
             win.blit(self.flag_image,(self.x,self.y))   
         elif self.left_clicked: 
@@ -75,18 +76,25 @@ timer_rect_box = pygame.Rect(WIN_WIDTH-230, 10, 60, 30)
 timer_text = myfont.render(str(counter), True, (232, 26, 12))
 #text_rect = text.get_rect(center = win.get_rect().center)
 
+bomb_count_box = pygame.Rect(10, 10, 60, 30)
+
 class Start_Lost:
     def __init__(self):
         self.start_img = pygame.transform.scale(pygame.image.load('start.png'),(40,40))
         self.start_img.convert()
         self.lost_img = pygame.transform.scale(pygame.image.load('lost.png'),(40,40))
         self.lost_img.convert()
+        self.won_img = pygame.transform.scale(pygame.image.load('won.png'),(40,40))
+        self.won_img.convert()
 
         self.start_img_rect = self.start_img.get_rect()
         self.start_img_rect.midtop = (WIN_WIDTH-200)//2, 10
 
         self.lost_img_rect = self.lost_img.get_rect()
         self.lost_img_rect.midtop = (WIN_WIDTH-200)//2, 10
+
+        self.won_img_rect = self.won_img.get_rect()
+        self.won_img_rect.midtop = (WIN_WIDTH-200)//2, 10
 
         self.gamestate = 'ready'
     def update(self,win):
@@ -102,7 +110,8 @@ class Start_Lost:
         elif self.gamestate == 'lost':
             #print('LOST')
             win.blit(self.lost_img, self.lost_img_rect)
-
+        elif self.gamestate == 'WON':
+            win.blit(self.won_img, self.won_img_rect)
 blocks_list = []
 def create_bombs():    
     b_list = []
@@ -225,7 +234,7 @@ bombs_list = create_bombs()
 bom_count_list = calculate_numbers(bombs_list)
 
 def open_blocks(block,index):   
-    print('Parent->',index) 
+    #print('Parent->',index) 
     if bombs_list[index] == 'b':
         return
     if bom_count_list[index] != 0:
@@ -296,7 +305,7 @@ def open_blocks(block,index):
         if bottomright >= 0:
             padosi_list.append(bottomright)
 
-    print(padosi_list)
+    #print(padosi_list)
     padosi_clone = padosi_list.copy()
     for p_index in padosi_clone:
         try:
@@ -306,7 +315,7 @@ def open_blocks(block,index):
                 if blocks_list[p_index].flagged != True or blocks_list[p_index].left_clicked != True:
                     blocks_list[p_index].left_clicked = True
             elif bom_count_list[p_index] == 0:
-                print('Child->', p_index)
+                #print('Child->', p_index)
                 if blocks_list[p_index].flagged != True and blocks_list[p_index].left_clicked != True:
                     blocks_list[p_index].left_clicked = True
                     open_blocks(blocks_list[p_index],p_index)
@@ -341,19 +350,44 @@ for i in range(TOTAL_BLOCKS):
     blocks_list.append(b)
 
 start_button = Start_Lost()
-
+COUNT = 0
 def redrawWindow():
+    global COUNT,GAME_STATE
     win.fill(BODY_COLOR)
     start_button.update(win)
     rect_surf = pygame.draw.rect(win, (0,0,0), timer_rect_box)
     timer_rect = timer_text.get_rect(center = rect_surf.center)
     win.blit(timer_text, timer_rect)
+
+    bomb_count_text = myfont.render(str(BOMB_NOS), True, (232, 26, 12))
+    bomb_count_surf = pygame.draw.rect(win, (0,0,0), bomb_count_box)
+    b_count_rect = bomb_count_text.get_rect(center = bomb_count_surf.center)
+    win.blit(bomb_count_text,b_count_rect)
+
     for index,b in enumerate(blocks_list):
-        b.update(win)     
+        b.update(win)
+        if b.left_clicked:
+            COUNT = COUNT + 1
+    #print('COUNT',COUNT)
+    if COUNT == (TOTAL_BLOCKS - BOMB_NOS_COPY):
+        GAME_STATE = 'WON'
+        start_button.gamestate = GAME_STATE
+        pygame.time.set_timer(timer_event, 0)
+        
+    #print('GAMESTATE->',GAME_STATE)
+    if GAME_STATE == 'WON':
+        win_msg = result_font.render(GAME_STATE, True, (52, 204, 235))
+        win.blit(win_msg,(WIN_WIDTH-130,WIN_HEIGHT//2,80,20))    
+    elif GAME_STATE == 'LOST':
+        win_msg = result_font.render(GAME_STATE, True, (237, 217, 31))
+        win.blit(win_msg,(WIN_WIDTH-130,WIN_HEIGHT//2,80,20))
+
+    COUNT = 0    
+
     pygame.display.update()
 
 
-while running:
+while running: 
     #clock.tick(100)
     for event in pygame.event.get():
         mouse_pressed = pygame.mouse.get_pressed()
@@ -378,9 +412,10 @@ while running:
                         start_button.gamestate = 'playing'
                         pygame.time.set_timer(timer_event, 1000)
                         
-                elif start_button.gamestate == 'lost':
+                elif start_button.gamestate == 'lost' or start_button.gamestate == 'WON':
                     #print('NNNNNN')
                     # reinitialize/reset GAME
+                    BOMB_NOS = BOMB_NOS_COPY
                     bombs_list = create_bombs()
                     bom_count_list = calculate_numbers(bombs_list)
                             
@@ -415,6 +450,10 @@ while running:
                     if b.rect.collidepoint(mouse_location):
                         if b.left_clicked != True:
                             b.flagged = not b.flagged
+                            if b.flagged:
+                                BOMB_NOS = BOMB_NOS - 1
+                            else:
+                                BOMB_NOS = BOMB_NOS + 1
                         #print('YES',b.rect,'MOUSE',mouse_location)
                         break
             
@@ -423,7 +462,7 @@ while running:
         elif event.type == timer_event:            
             counter += 1
             timer_text = myfont.render(str(counter), True, (232, 26, 12))           
-            if counter == 50:
+            if counter == 500:
                 start_button.gamestate = 'lost'
                 pygame.time.set_timer(timer_event, 0)
             if GAME_STATE == 'LOST':
